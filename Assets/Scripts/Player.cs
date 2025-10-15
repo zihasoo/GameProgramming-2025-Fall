@@ -36,10 +36,14 @@ public class Player : MonoBehaviour
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
+
         isOver = false;
+        isFalling = false;
+        isGrounded = true;
         HP = maxHP;
-        HPText.text = $"HP: {maxHP}";
         jumpCount = maxJumpCount;
+
+        HPText.text = $"HP: {maxHP}";
     }
 
     void Update()
@@ -65,10 +69,11 @@ public class Player : MonoBehaviour
         float vy = rb.velocityY;
 
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer) && rb.velocityY == 0;
-        if (isFalling && isGrounded)
+        if (isFalling && isGrounded) //처음으로 땅을 만났을 때
         {
             jumpCount = maxJumpCount;
             isFalling = false;
+            animator.SetBool("IsFalling", false);
         }
 
         if (Input.GetKeyDown(KeyCode.Space) && jumpCount > 0)
@@ -76,13 +81,21 @@ public class Player : MonoBehaviour
             jumpCount--;
             vy = jumpForce;
             if (isGrounded)
+            {
                 animator.SetTrigger("IsJump");
+            }
             else
+            {
+                isFalling = false;
+                animator.SetBool("IsFalling", false);
                 animator.SetTrigger("IsDoubleJump");
+            }
         }
 
-        if (!isFalling && !isGrounded && vy < 0) {
+        if (!isFalling && !isGrounded && vy < 0) { //처음으로 떨어지기 시작할 때
             isFalling = true;
+            animator.SetBool("IsRun", false);
+            animator.SetBool("IsIDLE", false);
             animator.SetBool("IsFalling", true);
         }
 
@@ -92,13 +105,13 @@ public class Player : MonoBehaviour
 
         if (moveH)
         {
-            animator.SetBool("IsRunning", true);
-            animator.SetBool("IsIdle", false);
+            animator.SetBool("IsRun", true);
+            animator.SetBool("IsIDLE", false);
         }
         else
         {
-            animator.SetBool("IsRunning", false);
-            animator.SetBool("IsIdle", true);
+            animator.SetBool("IsRun", false);
+            animator.SetBool("IsIDLE", true);
         }
     }
 
@@ -125,6 +138,8 @@ public class Player : MonoBehaviour
             rb.velocityY = jumpForce * 1.5f;
             var tramAnimator = collision.gameObject.GetComponent<Animator>();
             tramAnimator.SetTrigger("IsJump");
+            isFalling = false;
+            animator.SetBool("IsFalling", false);
             animator.SetTrigger("IsJump");
             jumpCount = maxJumpCount - 1;
         }
