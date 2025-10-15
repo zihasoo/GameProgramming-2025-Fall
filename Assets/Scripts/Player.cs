@@ -11,8 +11,8 @@ public class Player : MonoBehaviour
     public GameObject gameClear;
     public Slider slider;
     public Text HPText;
-    public Animator TramAnimator;
-    public int MaxHP;
+    public int maxHP;
+    public int maxJumpCount = 2;
 
     public float moveSpeed = 5f;
     public float jumpForce = 7f;
@@ -21,10 +21,12 @@ public class Player : MonoBehaviour
     private SpriteRenderer spriteRenderer;
     private bool isGrounded;
     private bool isOver;
+    private int jumpCount;
     private int HP;
+    private bool isFalling;
 
     public Transform groundCheck;
-    public float groundCheckRadius = 0.2f;
+    public float groundCheckRadius = 0.1f;
     public LayerMask groundLayer;
 
     Animator animator;
@@ -35,56 +37,81 @@ public class Player : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         isOver = false;
-        HP = MaxHP;
-        HPText.text = $"HP: {MaxHP}";
+        HP = maxHP;
+        HPText.text = $"HP: {maxHP}";
+        jumpCount = maxJumpCount;
     }
 
     void Update()
     {
         if (isOver) return;
         float moveInput = 0f;
+        bool moveH = false;
 
         if (Input.GetKey(KeyCode.A))
         {
             moveInput = -1f;
             spriteRenderer.flipX = true;
-            AnimatorChange("IsRun");
+            moveH = true;
         }
         else if (Input.GetKey(KeyCode.D))
         {
             moveInput = 1f;
             spriteRenderer.flipX = false;
-            AnimatorChange("IsRun");
-        }
-        else
-        {
-            AnimatorChange("IsIDLE");
+            moveH = true;
         }
 
         float vx = moveInput * moveSpeed;
         float vy = rb.velocityY;
 
-        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
-
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer) && rb.velocityY == 0;
+        if (isFalling && isGrounded)
         {
+            jumpCount = maxJumpCount;
+            isFalling = false;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Space) && jumpCount > 0)
+        {
+            jumpCount--;
             vy = jumpForce;
-            AnimatorChange("IsJump");
+            if (isGrounded)
+                animator.SetTrigger("IsJump");
+            else
+                animator.SetTrigger("IsDoubleJump");
+        }
+
+        if (!isFalling && !isGrounded && vy < 0) {
+            isFalling = true;
+            animator.SetBool("IsFalling", true);
         }
 
         rb.velocity = new Vector2(vx, vy);
+
+        if (!isGrounded) return;
+
+        if (moveH)
+        {
+            animator.SetBool("IsRunning", true);
+            animator.SetBool("IsIdle", false);
+        }
+        else
+        {
+            animator.SetBool("IsRunning", false);
+            animator.SetBool("IsIdle", true);
+        }
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
-        if (collision.gameObject.tag == "Obstacle")
+        if (collision.gameObject.CompareTag("Obstacle"))
         {
             HP--;
             var obj = Instantiate(hitPrefab, transform.position, Quaternion.identity);
             Destroy(obj, 0.5f);
             animator.SetTrigger("IsHit");
             HPText.text = $"HP: {HP}";
-            slider.value = (float)HP / MaxHP;
+            slider.value = (float)HP / maxHP;
 
             if (HP <= 0)
             {
@@ -93,30 +120,19 @@ public class Player : MonoBehaviour
                 Destroy(gameObject);
             }
         }
-        else if (collision.gameObject.tag == "Tram")
+        else if (collision.gameObject.CompareTag("Tram"))
         {
             rb.velocityY = jumpForce * 1.5f;
-            TramAnimator.SetTrigger("IsJump");
-            AnimatorChange("IsJump");
+            var tramAnimator = collision.gameObject.GetComponent<Animator>();
+            tramAnimator.SetTrigger("IsJump");
+            animator.SetTrigger("IsJump");
+            jumpCount = maxJumpCount - 1;
         }
-        else if (collision.gameObject.tag == "End")
+        else if (collision.gameObject.CompareTag("End"))
         {
             gameClear.SetActive(true);
             isOver = true;
             rb.velocity = Vector2.zero;
         }
-    }
-
-    private void AnimatorChange(string name)
-    {
-        animator.SetBool("IsIDLE", false);
-        animator.SetBool("IsRun", false);
-
-        if (name == "IsJump")
-        {
-            animator.SetTrigger("IsJump");
-            return;
-        }
-        animator.SetBool(name, true);
     }
 }
