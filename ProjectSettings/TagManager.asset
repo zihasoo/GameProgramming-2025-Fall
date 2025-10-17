@@ -7,6 +7,7 @@ TagManager:
   - Obstacle
   - Tram
   - End
+  - Item
   layers:
   - Default
   - TransparentFX
